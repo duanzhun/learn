@@ -1,0 +1,226 @@
+{\rtf1\ansi\ansicpg936\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset134 PingFangSC-Regular;\f1\fswiss\fcharset0 Helvetica;\f2\fswiss\fcharset0 ArialMT;
+\f3\fnil\fcharset0 Menlo-Regular;}
+{\colortbl;\red255\green255\blue255;\red252\green79\blue8;\red14\green63\blue99;\red243\green246\blue249;
+\red192\green63\blue68;}
+{\*\expandedcolortbl;;\cssrgb\c100000\c40000\c0;\cssrgb\c4706\c31765\c46275;\cssrgb\c96078\c97255\c98039;
+\cssrgb\c80392\c33333\c33333;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \'b0\'b2\'d7\'b0\'d2\'c0\'c0\'b5\'b0\'fc
+\f1 \
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+\cf0 yum install -y conntrack ntpdate ntp ipvsadm ipset jq iptables curl sysstat libseccomp wget vim net-tools git\
+\
+
+\f0 \'c9\'e8\'d6\'c3\'b7\'c0\'bb\'f0\'c7\'bd\'ce\'aa
+\f1 iptables
+\f0 \'b2\'a2\'c9\'e8\'d6\'c3\'bf\'d5\'b9\'e6\'d4\'f2
+\f1 \
+systemctl stop firewalld && systemctl disable firewalld\
+\
+yum -y install iptables-services && systemctl start iptables && systemctl enable iptables && iptables -F && service iptables save\
+\
+
+\f0 \'b9\'d8\'b1\'d5
+\f1 selinux\
+swapoff -a && sed -i '/ swap / s/^\\(.*\\)$/#\\1/g' /etc/fstab\
+setenforce 0 && sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config\
+\
+
+\f0 \'b5\'f7\'d5\'fb\'c4\'da\'ba\'cb\'b2\'ce\'ca\'fd\'a3\'ac\'b6\'d4\'d3\'dak8s\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs28 \cf2 \expnd0\expndtw0\kerning0
+modprobe br_netfilter\
+
+\f0\fs24 \cf0 \kerning1\expnd0\expndtw0 \
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+\cf0 cat > kubernetes.conf <<EOF\
+net.bridge.bridge-nf-call-iptables=1\
+net.bridge.bridge-nf-call-ip6tables=1\
+net.ipv4.ip_forward=1\
+net.ipv4.tcp_tw_recycle=0\
+vm.swappiness=0 #\'bd\'fb\'d6\'b9\'ca\'b9\'d3\'c3swap \'bf\'d5\'bc\'e4\'a3\'ac\'d6\'bb\'d3\'d0\'b5\'b1\'cf\'b5\'cd\'b300M\'ca\'b1\'b2\'c5\'d4\'ca\'d0\'ed\'ca\'b9\'d3\'c3\'cb\'fc\
+vm.overcommit_memory=1 # TIPTASF\
+vm.panic_on_oom=0 # Fa O0M\
+fs.inotify.max_user_instances=8192\
+fs.inotify.max_user_watches=1048576\
+fs.file-max=52706963\
+fs.nr_open=52706963\
+net.ipv6.conf.all.disable_ipv6=1\
+net.netfilter.nf_conntrack_max=2310720\
+EOF\
+cp kubernetes.conf /etc/sysctl.d/kubernetes.conf\
+sysctl -p /etc/sysctl.d/kubernetes.conf\
+\
+\'b5\'f7\'d5\'fb\'cf\'b5\'cd\'b3\'ca\'b1\'c7\'f8\'a3\'ba\
+#\'c9\'e8\'d6\'c3\'cf\'b5\'cd\'b3\'ca\'b1\'c7\'f8\'ce\'aa\'d6\'d0\'b9\'fa/\'c9\'cf\'ba\'a3\
+timedatectl set-timezone Asia/Shanghai\
+#\'bd\'ab\'b5\'b1\'c7\'b0\'b5\'c4UTC\'ca\'b1\'bc\'e4\'d0\'b4\'c8\'eb\'d3\'b2\'bc\'fe\'ca\'b1\'d6\'d3\
+timedatectl set-local-rtc 0\
+#\'d6\'d8\'c6\'f4\'d2\'c0\'c0\'b5\'d3\'da\'cf\'b5\'cd\'b3\'ca\'b1\'bc\'e4\'b5\'c4\'b7\'fe\'ce\'f1\
+systemctl restart rsyslog\
+systemctl restart crond\
+\
+\
+\'b9\'d8\'b1\'d5\'cf\'b5\'cd\'b3\'b2\'bb\'d0\'e8\'d2\'aa\'b5\'c4\'b7\'fe\'ce\'f1\
+systemctl stop postfix && systemctl disable postfix\
+\
+\
+\'c9\'e8\'d6\'c3 rsyslogd \'ba\'cd systemd journald\
+mkdir /var/log/journal #\'b3\'d6\'be\'c3\'bb\'af\'b1\'a3\'b4\'e6\'c8\'d5\'d6\'be\'b5\'c4\'c4\'bf\'c2\'bc\
+mkdir /etc/systemd/journald.conf.d\
+cat > /etc/systemd/journald.conf.d/99-prophet.conf <<EOF\
+[Journal]\
+#\'b3\'d6\'be\'c3\'bb\'af\'b1\'a3\'b4\'e6\'b5\'bd\'b4\'c5\'c5\'cc\
+Storage=persistent\
+#\'d1\'b9\'cb\'f5\'c0\'fa\'ca\'b7\'c8\'d5\'d6\'be\
+Compress=yes\
+SyncIntervalSec=5m\
+RateLimitInterval=30s\
+RateLimitBurst=1000\
+#\'d7\'ee\'b4\'f3\'d5\'bc\'d3\'c3\'bf\'d5\'bc\'e410G\
+SystemMaxUse=10G\
+#\'b5\'a5\'c8\'d5\'d6\'be\'ce\'c4\'bc\'fe\'d7\'ee\'b4\'f3200M\
+SystemMaxFileSize=200M\
+#\'c8\'d5\'d6\'be\'b1\'a3\'b4\'e6\'ca\'b1\'bc\'e42\'d6\'dc\
+MaxRetentionSec= 2week\
+#\'b2\'bb\'bd\'ab\'c8\'d5\'d6\'be\'d7\'aa\'b7\'a2\'b5\'bdsyslog\
+ForwardToSyslog=no\
+EOF\
+systemctl restart systemd-journald\
+\
+\'c9\'fd\'bc\'b6\'cf\'b5\'cd\'b3\'c4\'da\'ba\'cb\'ce\'aa4.44\
+rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm\
+yum --enablerepo=elrepo-kernel install -y kernel-lt\
+grub2-set-default 'CentOS Linux (4.4.231-1.el7.elrepo.x86_64) 7 (Core)'\
+\
+\'c9\'e8\'d6\'c3\'cd\'ea\'b1\'cf\'d6\'ae\'ba\'f3\'d2\'aa\'d6\'d8\'c6\'f4\
+Uname -r \'bc\'ec\'b2\'e9\'d2\'bb\'cf\'c2\
+\
+\
+K8\
+2\'a1\'a2Kubeadm \'b2\'bf\'ca\'f0\'b0\'b2\'d7\'b0:\
+\
+kube-proxy\'bf\'aa\'c6\'f4ipvs\'b5\'c4\'c7\'b0\'d6\'c3\'cc\'f5\'bc\'fe\
+modprobe br_netfilter\
+\
+cat > /etc/sysconfig/modules/ipvs.modules <<EOF\
+#! /bin/bash\
+modprobe -- ip_vs\
+modprobe -- ip_vs_rr\
+modprobe -- ip_vs_wrr\
+modprobe -- ip_vs_sh\
+modprobe -- nf_conntrack_ipv4\
+EOF\
+chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep -e ip_vs -e nf_conntrack_ipv4\
+\
+\
+\'b0\'b2\'d7\'b0docker\'a3\'ba\
+yum install -y yum-utils device-mapper-persistent-data lvm2\
+yum-config-manager \\\
+--add-repo \\\
+http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+yum update -y && yum install -y docker-ce\
+##\'b4\'b4\'bd\'a8/etc/docker \'c4\'bf\'c2\'bc\
+mkdir /etc/docker\
+# 4CT daemon .\
+cat > /etc/docker/daemon.json <<EOF\
+\{\
+"exec-opts": ["native.cgroupdriver=systemd"],\
+"log-driver": "json-file",\
+"log-opts": \{\
+"max-size": "100m"\
+\}\
+\}\
+EOF\
+mkdir -p /etc/systemd/system/docker.service.d\
+#\'d6\'d8\'c6\'f4docker\'b7\'fe\'ce\'f1\
+systemctl daemon-reload && systemctl restart docker && systemctl enable docker\
+\
+\
+\'b0\'b2\'d7\'b0 Kubeadm (\'d6\'f7\'b4\'d3\'c5\'e4\'d6\'c3)\
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo\
+[kubernetes]\
+name=Kubernetes\
+baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64\
+enabled=1\
+gpgcheck=0\
+repo_gpgcheck=0\
+gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg\
+http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg\
+EOF\
+yum -y install kubeadm-1.15.1 kubectl-1.15.1 kubelet-1.15.1\
+systemctl enable kubelet.service\
+\
+\'b3\'f5\'ca\'bc\'bb\'af\'d6\'f7\'bd\'da\'b5\'e3\'a3\'ba\
+\'b3\'f5\'ca\'bc\'bb\'af\'d6\'ae\'c7\'b0\'b5\'b9\'c8\'eb\'be\'b5\'cf\'f1\
+\'b6\'d4\'d3\'a6\'b5\'c4\'bd\'c5\'b1\'be\
+#!/bin/bash\
+ls /root/kubeadm-basic.images  > /tmp/image-list.txt\
+\
+cd /root/kubeadm-basic.images \
+\
+for i in $( cat /tmp/image-list.txt )\
+do\
+	docker load -i $i\
+done\
+\
+rm -rf /tmp/image-list.txt\
+\
+\'c8\'fd\'cc\'a8\'bb\'fa\'c6\'f7\'b6\'bc\'d2\'aa\'b5\'b9\'c8\'eb\
+\
+\'c8\'bb\'ba\'f3\'bf\'aa\'ca\'bc\'b3\'f5\'ca\'bc\'bb\'af\
+\
+\'b4\'f2\'d3\'a1\'c4\'ac\'c8\'cf\'b5\'c4\'b3\'f5\'ca\'bc\'bb\'af\'ce\'c4\'bc\'fe\'b5\'bd kubeadm-config.yaml\
+\
+kubeadm config print init-defaults > kubeadm-config.yaml\
+\
+\'c8\'bb\'ba\'f3\'b6\'d4\'d5\'e2\'b8\'f6\'c5\'e4\'d6\'c3\'ce\'c4\'bc\'fe\'bd\'f8\'d0\'d0\'d0\'de\'b8\'c4\
+\
+	localAPIEndpoint:\
+		advertiseAddress: 192.168.66.10\
+	kubernetesVersion: v1.15.1\
+	networking:\
+		podSubnet: "10.244.0. 0/16"\
+		serviceSubnet: 10.96.0.0/12\
+	---\
+	apiVersion: kubeproxy.config.k8s.io/v1alpha1\
+	kind: KubeProxyConfiguration\
+	featureGates:\
+		SupportIPVSProxyMode: true\
+	mode: ipvs\
+\
+kubeadm init --config=kubeadm-config.yaml --experimental-upload-certs | tee kubeadm-init.log\
+\
+\'bb\'e1\'d3\'f6\'b5\'bddocker\'b0\'e6\'b1\'be\'ce\'ca\'cc\'e2\'a3\'ba\
+\pard\pardeftab720\partightenfactor0
+
+\f3\fs26 \cf3 \cb4 \expnd0\expndtw0\kerning0
+yum remove docker \cf5 \\\cf3 \
+                  docker-client \cf5 \\\cf3 \
+                  docker-client-latest \cf5 \\\cf3 \
+                  docker-common \cf5 \\\cf3 \
+                  docker-latest \cf5 \\\cf3 \
+                  docker-latest-logrotate \cf5 \\\cf3 \
+                  docker-log rotate \cf5 \\\cf3 \
+                  docker-engine\
+yum -
+\f0 y remove
+\f3  docker-ce docker-ce-cli containerd.io
+\f0\fs24 \cf0 \cb1 \kerning1\expnd0\expndtw0 \
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+\cf0 https://developer.aliyun.com/article/110806\
+yum -y install docker-ce-18.09.2-3.el7 \
+\
+\
+\'b2\'bf\'ca\'f0\'cd\'f8\'c2\'e7\'a3\'ba\
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml	\
+\
+\
+\'c8\'bb\'ba\'f3\'b0\'b2\'d7\'b0mater\'d6\'d0\'b5\'c4\'c3\'fc\'c1\'ee\'bd\'ab\'bd\'da\'b5\'e3\'bc\'d3\'c8\'eb\'bc\'af\'c8\'ba\
+\'b1\'c8\'c8\'e7\
+kubeadm join 192.168.31.10:6443 --token abcdef.0123456789abcdef \\\
+    --discovery-token-ca-cert-hash sha256:5c07aed96fb22c565f47469b6190049d2bb81b157e5457c3a1f0baf5c83fa967 }
